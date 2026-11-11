@@ -359,6 +359,67 @@ TEST_F(ForkTest, COWSegment) {
   EXPECT_STREQ(contents.c_str(), read_buf);
 }
 
+// Breaking copy-on-write in a writable mapping must not make an adjacent
+// read-only mapping writable. The parent maps two pages and forks. The child
+// makes the second page read-only, writes the first page, and then writes the
+// second, which must raise SIGSEGV.
+//
+// If unique_ref is true, the parent unmaps its pages first, so the child holds
+// the only reference and the pages become writable in place. Otherwise the
+// parent keeps its reference and the child's write copies the page.
+void COWBreakKeepsAdjacentReadOnly(bool unique_ref) {
+  Mapping mapping = ASSERT_NO_ERRNO_AND_VALUE(
+      MmapAnon(2 * kPageSize, PROT_READ | PROT_WRITE, MAP_PRIVATE));
+  char* const addr = static_cast<char*>(mapping.ptr());
+  addr[0] = 1;
+  addr[kPageSize] = 1;
+
+  int fds[2];
+  ASSERT_THAT(pipe(fds), SyscallSucceeds());
+  FileDescriptor rfd(fds[0]);
+  FileDescriptor wfd(fds[1]);
+
+  const pid_t child = fork();
+  if (child == 0) {
+    wfd.CloseSignalSafe();
+    char c;
+    TEST_CHECK(ReadFd(rfd.get(), &c, 1) == 1);
+    TEST_CHECK(mprotect(addr + kPageSize, kPageSize, PROT_READ) == 0);
+    // The volatile accesses keep the compiler from eliding either write.
+    volatile char* const first = addr;
+    volatile char* const second = addr + kPageSize;
+    *first = 2;
+    *second = 2;
+    // The write to the read-only page succeeded.
+    _exit(1);
+  }
+  ASSERT_THAT(child, SyscallSucceeds());
+  rfd.reset();
+  if (unique_ref) {
+    mapping.reset();
+  }
+  char c = 0;
+  ASSERT_THAT(WriteFd(wfd.get(), &c, 1), SyscallSucceedsWithValue(1));
+
+  int status;
+  ASSERT_THAT(RetryEINTR(waitpid)(child, &status, 0),
+              SyscallSucceedsWithValue(child));
+  EXPECT_TRUE(WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV)
+      << "status = " << status;
+  if (!unique_ref) {
+    EXPECT_EQ(addr[0], 1);
+    EXPECT_EQ(addr[kPageSize], 1);
+  }
+}
+
+TEST(ForkCOWTest, COWBreakUniqueRefKeepsAdjacentReadOnly) {
+  COWBreakKeepsAdjacentReadOnly(/*unique_ref=*/true);
+}
+
+TEST(ForkCOWTest, COWBreakCopyKeepsAdjacentReadOnly) {
+  COWBreakKeepsAdjacentReadOnly(/*unique_ref=*/false);
+}
+
 TEST_F(ForkTest, SigAltStack) {
   std::vector<char> stack_mem(SIGSTKSZ);
   stack_t stack = {};
