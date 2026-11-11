@@ -281,7 +281,9 @@ func TestFilterCapabilities(t *testing.T) {
 
 		// Set of UVM ioctls that nvproxy accepts but does not forward to the host.
 		nonForwardedUVMIoctls = map[uint32]struct{}{
-			// This ioctl runs in the application's host mm, not the Sentry.
+			// On /dev/nvidia-uvm this ioctl runs in the application's host mm,
+			// not the Sentry. On /dev/nvidia-uvm-tools nvproxy rejects it; see
+			// TestUVMToolsPopulatePageable in //test/gpu:uvm_tools_test.
 			nvgpu.UVM_POPULATE_PAGEABLE: {},
 		}
 

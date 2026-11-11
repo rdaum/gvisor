@@ -45,7 +45,8 @@ RUN chmod 555 /*.sh && \
     gcc -o /unsupported_ioctl /unsupported_ioctl.cc && \
     nvcc -std=c++17 -O2 -o /uvm_populate_pageable /uvm_populate_pageable.cu && \
     nvcc -std=c++17 -O2 -o /uvm_memory_policy /uvm_memory_policy.cu && \
-    g++ -std=c++17 -O2 -o /uvm_mm_checkpoint /uvm_mm_checkpoint.cc
+    g++ -std=c++17 -O2 -o /uvm_mm_checkpoint /uvm_mm_checkpoint.cc && \
+    g++ -std=c++17 -O2 -o /uvm_tools_populate_pageable /uvm_tools_populate_pageable.cc
 
 COPY run_sample /run_sample
 COPY --from=builder /ascii-image-converter /usr/bin/

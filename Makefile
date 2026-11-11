@@ -381,6 +381,9 @@ gpu-smoke-tests: gpu-smoke-images $(RUNTIME_BIN)
 	@$(call install_runtime,$(RUNTIME),--nvproxy=true)
 	@$(call sudo,test/gpu:smoke_test,--runtime=$(RUNTIME) -test.v $(ARGS))
 	@$(call sudo,test/gpu:sr_test,--runtime=$(RUNTIME) -test.v $(ARGS))
+	@$(call sudo,test/gpu:uvm_tools_test,--runtime=runc -test.v $(ARGS))
+	@$(call install_runtime,$(RUNTIME),--nvproxy=true --nvproxy-allowed-driver-capabilities=compute,utility,profiling)
+	@$(call sudo,test/gpu:uvm_tools_test,--runtime=$(RUNTIME) -test.v $(ARGS))
 .PHONY: gpu-smoke-tests
 
 cos-gpu-smoke-tests: gpu-smoke-images $(RUNTIME_BIN)

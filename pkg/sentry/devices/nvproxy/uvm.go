@@ -303,7 +303,10 @@ func uvmMMInitialize(ui *uvmIoctlState) (uintptr, error) {
 
 func uvmPopulatePageable(ui *uvmIoctlState) (uintptr, error) {
 	if ui.fd == nil {
-		return uvmIoctlSimple[nvgpu.UVM_POPULATE_PAGEABLE_PARAMS](ui)
+		// /dev/nvidia-uvm-tools does not implement this ioctl and the driver
+		// returns EINVAL for it. The Sentry's seccomp filters do not allow the
+		// command, so it must not be forwarded from the Sentry.
+		return 0, linuxerr.EINVAL
 	}
 	var ioctlParams nvgpu.UVM_POPULATE_PAGEABLE_PARAMS
 	if _, err := ioctlParams.CopyIn(ui.t, ui.ioctlParamsAddr); err != nil {
