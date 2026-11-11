@@ -26,12 +26,19 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/vfs"
 )
 
+// applicationMMUVMPossible reports whether a sandbox with the given
+// capabilities can select application-mm UVM on this architecture. Only
+// coherent ARM systems need it.
+func applicationMMUVMPossible(caps nvconf.DriverCaps) bool {
+	return runtime.GOARCH == "arm64" && caps&compUtil != 0
+}
+
 // UseApplicationMMUVM selects the UVM mode for the GPUs exposed to a container.
 // Call it during device setup, before any application UVM FDs are opened. The
 // driver queries use temporary host FDs, independent of application RM clients.
 // driverVersion is the NVIDIA driver ABI version configured for the sandbox.
 func UseApplicationMMUVM(ctx context.Context, devClient *devutil.GoferClient, minors []uint32, caps nvconf.DriverCaps, driverVersion nvconf.DriverVersion) (bool, error) {
-	if runtime.GOARCH != "arm64" || len(minors) == 0 || caps&compUtil == 0 {
+	if !applicationMMUVMPossible(caps) || len(minors) == 0 {
 		return false, nil
 	}
 	if devClient == nil {

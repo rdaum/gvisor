@@ -138,8 +138,12 @@ func uvmIoctlFilters(enabledCaps nvconf.DriverCaps) []seccomp.SyscallRule {
 // HostMMIOIoctlRules returns the flat UVM ioctls that can run in an
 // application's host mm. Arguments contain no translated host descriptors or
 // Sentry pointers, since the application can modify them during execution.
+//
+// It returns nil when no sandbox on this architecture can select application-mm
+// UVM. The platform then keeps its precompiled stub filter and admits no
+// additional ioctls.
 func HostMMIOIoctlRules(enabledCaps nvconf.DriverCaps) seccomp.SyscallRule {
-	if enabledCaps&compUtil == 0 {
+	if !applicationMMUVMPossible(enabledCaps) {
 		return nil
 	}
 	return seccomp.Or{

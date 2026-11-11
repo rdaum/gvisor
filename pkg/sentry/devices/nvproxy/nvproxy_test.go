@@ -15,6 +15,7 @@
 package nvproxy
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -260,6 +261,24 @@ func TestHandlers(t *testing.T) {
 			&uvmIoctlState{nvp: capUtilityNVP},
 		)
 	})
+}
+
+// TestHostMMIOIoctlRulesMatchUVMMode checks that stub processes are granted
+// host-mm ioctls only where application-mm UVM can be selected.
+func TestHostMMIOIoctlRulesMatchUVMMode(t *testing.T) {
+	for _, caps := range []nvconf.DriverCaps{
+		0,
+		nvconf.CapVideo,
+		nvconf.CapCompute,
+		nvconf.CapUtility,
+		nvconf.CapCompute | nvconf.CapProfiling,
+		nvconf.ValidCapabilities,
+	} {
+		want := runtime.GOARCH == "arm64" && caps&(nvconf.CapCompute|nvconf.CapUtility) != 0
+		if got := HostMMIOIoctlRules(caps) != nil; got != want {
+			t.Errorf("HostMMIOIoctlRules(%v) non-nil = %t, want %t on %s", caps, got, want, runtime.GOARCH)
+		}
+	}
 }
 
 // TestFilterCapabilities loosely verifies that the seccomp filters have the
